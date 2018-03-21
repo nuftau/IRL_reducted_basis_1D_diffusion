@@ -6,6 +6,8 @@ def res_direct(u0, f, discretisation_z, dt, T, nu, nu_prime, a, b):
         renvoie u(dt*n_max)
     """
     assert(len(u0) == len(discretisation_z))
+    assert(len(nu) == len(nu_prime))
+    assert(len(u0) == len(nu))
     M = calculer_M(discretisation_z, nu, nu_prime, dt)
     n_z = len(discretisation_z)
     u = np.array(u0)

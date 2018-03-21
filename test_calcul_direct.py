@@ -1,6 +1,15 @@
 import numpy as np
 from res_direct import res_direct
 
+def discretisation(h_max):
+    ret = [0]
+    actual_h= 0
+    while actual_h + h_max < 1:
+        actual_h += max(h_max/10, abs(np.cos(actual_h))*h_max)
+        ret.append(actual_h)
+    ret.append(1)
+    return np.array(ret)
+
 def zero(t):
     return 0
 
@@ -10,9 +19,9 @@ def nu(z):
 def nu_prime(z):
     return - 2 * (1 - z)
 
-def b_test(u):
+def b_test(u, h_f):
     def b(t):
-        return u(1, t)
+        return u(h_f, t)
     return b
 
 def test_func_indep_z(dt, h_max):
@@ -27,17 +36,17 @@ def test_func_indep_z(dt, h_max):
         return cst_u(0, t)
 
     t_f = 1
-    return test_calcul_direct(cst_u, cst_f, zero, 
-            b_test(cst_u), t_f, dt, h_max)
+    return test_calcul_direct(cst_u, cst_f, zero, t_f, dt, h_max)
 
 
 def test_func_indep_t(dt, h_max):
     """renvoie l'erreur entre la vraie solution et la solution
         par différences finies avec la premiere fonction"""
-    def u(z, t):
-        return 1000 * (np.sin(np.pi*z) - np.sin(2*np.pi*z)) * np.sin(t)
     def u_t_independant(z,t):
-        return np.cos(np.pi*z)
+        return np.cos(z)
+
+    def f_t_independant(z, t):
+        return nu(z) * np.cos(z) + nu_prime(z)*np.sin(z)
 
     def u_t_indep_simple(z, t):
         return z
@@ -45,50 +54,42 @@ def test_func_indep_t(dt, h_max):
     def f_t_indep_simple(z, t):
         return -nu_prime(z)
 
-    def b_t_indep_simple(t):
-        return u_t_indep_simple(1, t)
-
     def a_t_indep_simple(t):
         return 1
 
-    def f_t_independant(z, t):
-        return np.pi*(nu(z) * np.pi * np.cos(z) + nu_prime(z)*np.sin(z))
-
-    def f(z, t):
-        return 1000 * ((np.sin(np.pi*z) - np.sin(2*np.pi*z)) \
-                * np.cos(t) - \
-                np.sin(t) * ( nu_prime(z) * np.pi * \
-                (np.cos(np.pi*z) - 2*np.cos(2*np.pi*z)) \
-                + nu(z) * np.pi * np.pi * \
-                (np.sin(np.pi*z) - 4 * np.sin(2*np.pi*z))))
-
     t_f = 1
-    return test_calcul_direct(u_t_indep_simple, f_t_indep_simple, 
-            a_t_indep_simple, b_test(u_t_indep_simple), t_f, dt, h_max)
+    return test_calcul_direct(u_t_independant, f_t_independant, 
+            zero, t_f, dt, h_max)
 
 def test_func_simple(dt, h_max):
     """renvoie l'erreur entre la vraie solution et la solution
         par différences finies avec la fonction 
         1000*sin(t)(sin(piz) - sin(2piz))"""
+    alpha = 0.1
     def u(z, t):
-        return 1000 * (np.sin(np.pi*z) - np.sin(2*np.pi*z)) * np.sin(t)
+        return np.cos(z) * np.sin(alpha*t)
 
     def f(z, t):
-        return 1000 * ((np.sin(np.pi*z) - np.sin(2*np.pi*z)) \
-                * np.cos(t) - \
-                np.sin(t) * ( nu_prime(z) * np.pi * \
-                (np.cos(np.pi*z) - 2*np.cos(2*np.pi*z)) \
-                + nu(z) * np.pi * np.pi * \
-                (np.sin(np.pi*z) - 4 * np.sin(2*np.pi*z))))
+        return alpha * np.cos(alpha*t) * np.cos(z) + \
+                nu_prime(z) * np.sin(z)* np.sin(alpha*t) + \
+                nu(z) * np.cos(z) * np.sin(alpha*t)
+            
 
     t_f = 1
-    return test_calcul_direct(u, f, zero, b_test(u_t_indep_simple), 
-            t_f, dt, h_max)
+    return test_calcul_direct(u, f, zero, t_f, dt, h_max)
 
 
-def test_calcul_direct(u, f, a, b, t_f, dt, h_max):
-    discretisation_h = np.array([h for h in np.linspace(0, 1, 1+1/h_max)])
+def test_calcul_direct(u, f, a, t_f, dt, h_max):
+    """ u : fonction solution
+    f : second membre
+    a: (du/dz (0) )(t)
+    """
+    def b(t):
+        return u(1, t)
+    # discretisation_h = np.array([h for h in np.linspace(0, 1, 1+1/h_max)])
     # ici on a h = h_max, la discretisation est uniforme
+
+    discretisation_h= discretisation(h_max) # discretisation non uniforme
 
     u0 = u(discretisation_h, 0)
     n_max = t_f
@@ -106,8 +107,12 @@ dt = 0.1
 h = 0.1
 print("test avec df/dt = 0 : ")
 for i in range(7):
-    print(test_func_indep_t(dt, 10**(-1-i)), "  :  10^(-", i+1, ")")
+    print(test_func_indep_t(dt, 10**(-1-i/2)), "  :  10^(-", i+1, ")")
 print()
 print("test avec df/dz = 0 : ")
-for i in range(5):
-    print(test_func_indep_z(10**(-1-i), dt), "  :  10^(-", i+1, ")")
+for i in range(7):
+    print(test_func_indep_z(10**(-1-i/2), h), "  :  10^(-", i+1, ")")
+print()
+print("test avec u = cosz sint : ")
+for i in range(7):
+    print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i+1, ")")
