@@ -17,6 +17,15 @@ def test_premiere_func(dt, h_max):
     def u_t_independant(z,t):
         return np.cos(np.pi*z)
 
+    def u_t_indep_simple(z, t):
+        return z
+
+    def f_t_indep_simple(z, t):
+        return -nu_prime(z)
+
+    def b_t_indep_simple(t):
+        return u_t_indep_simple(1, t)
+
     def cst_f(z, t):
         """should be du/dt - nu'(z) * du/dz - nu(z) d²u/dz²"""
         return -1/((t+0.01)**2) + z - z # +z - z pour np.array
@@ -28,7 +37,7 @@ def test_premiere_func(dt, h_max):
         return cst_u(0, t)
 
     def b_t_independant(t):
-        return cst_u(0, t)
+        return cst_u(1, t)
 
     def f(z, t):
         return 1000 * ((np.sin(np.pi*z) - np.sin(2*np.pi*z)) \
@@ -45,10 +54,10 @@ def test_premiere_func(dt, h_max):
         return 0
 
     t_f = 1
-    return test_calcul_direct(u_t_independant, f_t_independant, a, b_t_independant, t_f, dt, h_max)
+    return test_calcul_direct(u_t_indep_simple, f_t_indep_simple, a, b_t_indep_simple, t_f, dt, h_max)
 
 def test_calcul_direct(u, f, a, b, t_f, dt, h_max):
-    discretisation_h = np.array([h for h in np.linspace(0, 1, 1/h_max)])
+    discretisation_h = np.array([h for h in np.linspace(0, 1, 1+1/h_max)])
     # ici on a h = h_max, la discretisation est uniforme
 
     u0 = u(discretisation_h, 0)
@@ -65,5 +74,5 @@ def test_calcul_direct(u, f, a, b, t_f, dt, h_max):
 
 dt = 0.1
 h = 0.1
-for i in range(5):
+for i in range(1):
     print(test_premiere_func(dt, 10**(-1-i)), "  :  10^(-", i+1, ")")
