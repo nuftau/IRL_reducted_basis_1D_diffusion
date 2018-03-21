@@ -12,9 +12,9 @@ def res_direct(u0, f, discretisation_z, dt, T, nu, nu_prime, a, b):
     discretisation_z = discretisation_z[1:-1]
     for t in np.linspace(0, T-dt, T/dt):
         second_membre = np.concatenate(([a(t+dt)], f(discretisation_z, t+dt) + u[1:-1]/dt, [b(t+dt)]))
-        print("second membre : ", second_membre) 
-        print("u : ", u)
-        print()
+        #print("second membre : ", second_membre) 
+        #print("u : ", u)
+        #print()
         u = la.solve_banded((1, 1), M, second_membre)
     return u
 
@@ -23,23 +23,22 @@ def calculer_M(discretisation_z, nu, nu_prime, dt):
     """ calcule la matrice K de la discretisation spatiale
         doit renvoyer une np.matrix
     """
-    h_j_moins_1 = np.array(discretisation_z[1:-1]) \
-            - np.array(discretisation_z[0:-2])
-    h_j = np.array(discretisation_z[2:]) \
-            - np.array(discretisation_z[1:-1])
-    nu = np.array(nu[1:-1])
-    nu_prime = np.array(nu_prime[1:-1])
 
-    diag =  2*nu/(h_j*h_j_moins_1) + 1/dt
-    sous_diag= nu_prime/(h_j + h_j_moins_1) \
-            -2*nu / (h_j_moins_1 * (h_j + h_j_moins_1))
-    sur_diag= -nu_prime/(h_j + h_j_moins_1) \
-            -2*nu / (h_j * (h_j + h_j_moins_1))
+    z = discretisation_z
+    diag = [-1/(z[1] - z[0])]
+    sur_diag = [0, 1/(z[1] - z[0])]
+    sous_diag = []
+    for j in range(1, len(discretisation_z) - 1):
+        h_j = z[j+1] - z[j]
+        h_j_1 = z[j] - z[j-1]
+        sur_diag.append(-nu_prime[j]/(h_j+h_j_1) - \
+                2*nu[j]/(h_j*(h_j+h_j_1)))
+        diag.append(1/dt + 2*nu[j]/(h_j*h_j_1))
+        sous_diag.append(nu_prime[j]/(h_j+h_j_1) - \
+                2*nu[j]/(h_j_1*(h_j+h_j_1)))
+    sous_diag.append(0)
+    sous_diag.append(0)
+    diag.append(1)
 
-    diag = np.concatenate(([-1/h_j_moins_1[0]], diag, [1]))
-    sous_diag = np.append(sous_diag, (0, 0))
-    sur_diag = np.insert(sur_diag, 0, (0, 1/h_j_moins_1[0]))
-    ab = np.array((sur_diag, diag, sous_diag))
-
-    return ab # np.diag(diag, k=0) + np.diag(sous_diag, k=-1) + np.diag(sur_diag, k=1)
+    return np.array((sur_diag, diag, sous_diag))
 
