@@ -1,5 +1,5 @@
 import numpy as np
-from res_direct import res_direct
+from res_direct_opti import res_direct
 
 def discretisation(h_max):
     ret = [0]
@@ -107,12 +107,12 @@ dt = 0.1
 h = 0.1
 print("test avec df/dt = 0 : ")
 for i in range(7):
-    print(test_func_indep_t(dt, 10**(-1-i/2)), "  :  10^(-", i+1, ")")
+    print(test_func_indep_t(dt, 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
 print()
 print("test avec df/dz = 0 : ")
 for i in range(7):
-    print(test_func_indep_z(10**(-1-i/2), h), "  :  10^(-", i+1, ")")
+    print(test_func_indep_z(10**(-1-i/2), h), "  :  10^(-", i/2+1, ")")
 print()
 print("test avec u = cosz sint : ")
 for i in range(7):
-    print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i+1, ")")
+    print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
