@@ -1,5 +1,5 @@
 import numpy as np
-from res_direct_opti import res_direct
+from res_direct import res_direct
 
 def discretisation(h_max):
     ret = [0]
@@ -64,7 +64,8 @@ def test_func_indep_t(dt, h_max):
 def test_func_simple(dt, h_max):
     """renvoie l'erreur entre la vraie solution et la solution
         par différences finies avec la fonction 
-        1000*sin(t)(sin(piz) - sin(2piz))"""
+        cos(z) * sin(alpha t)
+    """
     alpha = 0.1
     def u(z, t):
         return np.cos(z) * np.sin(alpha*t)
@@ -92,7 +93,6 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max):
     discretisation_h= discretisation(h_max) # discretisation non uniforme
 
     u0 = u(discretisation_h, 0)
-    n_max = t_f
     hat_u = res_direct(u0, f, discretisation_h, 
                     dt, t_f, 
                     nu(discretisation_h),
@@ -103,6 +103,7 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max):
     uf = u(discretisation_h, t_f)
     return max(abs(uf - hat_u))
 
+"""
 dt = 0.1
 h = 0.1
 print("test avec df/dt = 0 : ")
@@ -116,3 +117,4 @@ print()
 print("test avec u = cosz sint : ")
 for i in range(7):
     print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
+"""
