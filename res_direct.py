@@ -1,6 +1,13 @@
 import numpy as np
 import scipy.linalg as la
 
+def res_direct_one_step(K, M, u0, f, dt):
+    """resoud l'equation du/dt + d/dz(v(z)du/dz) = f
+        renvoie u(dt*n_max)
+    """
+    return la.solve(K + M/dt, f + M@u0/dt)
+
+
 def res_direct(u0, f, discretisation_z, dt, T, nu, nu_prime, a, b):
     """resoud l'equation du/dt + d/dz(v(z)du/dz) = f
         renvoie u(dt*n_max)
