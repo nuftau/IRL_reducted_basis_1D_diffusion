@@ -66,7 +66,7 @@ def test_func_simple(dt, h_max):
         par différences finies avec la fonction 
         cos(z) * sin(alpha t)
     """
-    alpha = 0.1
+    alpha = 1
     def u(z, t):
         return np.cos(z) * np.sin(alpha*t)
 
@@ -76,11 +76,11 @@ def test_func_simple(dt, h_max):
                 nu(z) * np.cos(z) * np.sin(alpha*t)
             
 
-    t_f = 1
+    t_f = 3
     return test_calcul_direct(u, f, zero, t_f, dt, h_max)
 
 
-def test_calcul_direct(u, f, a, t_f, dt, h_max):
+def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
     """ u : fonction solution
     f : second membre
     a: (du/dz (0) )(t)
@@ -90,7 +90,9 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max):
     # discretisation_h = np.array([h for h in np.linspace(0, 1, 1+1/h_max)])
     # ici on a h = h_max, la discretisation est uniforme
 
-    discretisation_h= discretisation(h_max) # discretisation non uniforme
+    if discretisation_h is None:
+        discretisation_h= discretisation(h_max)
+        # discretisation non uniforme
 
     u0 = u(discretisation_h, 0)
     hat_u = res_direct(u0, f, discretisation_h, 
