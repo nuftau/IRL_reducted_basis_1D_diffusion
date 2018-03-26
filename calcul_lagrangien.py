@@ -12,10 +12,11 @@ def calcul_lagrangien(Phi, m, ensemble_apprentissage):
         prendre 2-3 u_k et m == 1
     """
     Phi = np.reshape(Phi, (m, -1))
-    x0 = beta/2 + sum([(1 - np.linalg.norm(Phi[:][i])**2)**2 \
+    x0 = beta/2 * sum([(1 - np.linalg.norm((Phi.T)[i])**2)**2 \
             for i in range(Phi.shape[1])])
-    return calcul_forall_k(calcul_sous_lagrangien_one_step, x0, 
+    ret = calcul_forall_k(calcul_sous_lagrangien_one_step, 0, # METTRE x0 AU LIEU DE 0
             Phi, ensemble_apprentissage)
+    return ret
 
 
 def calcul_gradient(Phi, m, all_u, K, delta_t, n_max):
@@ -32,9 +33,9 @@ def calcul_gradient(Phi, m, all_u, K, delta_t, n_max):
 def calcul_sous_lagrangien_one_step(Phi, u, u0, alpha_k, alpha_k_0, lambda_k, mu_k, K, M, dt):
     ret = np.linalg.norm(u - Phi@alpha_k)/ 2
     ret += lambda_k.T @ \
-            ((Phi.T@M@Phi / delta_t + Phi.T@K@Phi) @ \
-            alpha_k - Phi.T@M@Phi @ alpha_k_0 / delta_t)
-    ret += mu_k.T @ (Phi_T_Phi @ alpha_k_0 - Phi.T @ u0)
+            ((Phi.T@M@Phi / dt + Phi.T@K@Phi) @ \
+            alpha_k - Phi.T@M@Phi @ alpha_k_0 / dt)
+    ret += mu_k.T @ (Phi.T@Phi @ alpha_k_0 - Phi.T @ u0)
     return ret
 def calcul_sous_lagrangien(Phi, u_k, alpha_k, lambda_k, mu_k, 
         K, delta_t, n_max):
@@ -79,22 +80,24 @@ def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
         (u0, K, f, dt)
         en conservant le formalisme utilisé dans le pdf
         on pourra par la suite ajouter H dans le tuple...
+        NE FAIS QUE DES ONE_STEP
     """
     # \beta\Phi diag(...) est le seul element qui depend
     # pas de l'ensemble d'apprentissage
-    M = calculer_M(len(discretisation_z) - 1)
-    Phi_T_M_Phi = Phi.T@M@Phi
     for u0, K, f, dt in ensemble_apprentissage:
+        M = calculer_M(len(u0) - 1)
+        Phi_T_M_Phi = Phi.T@M@Phi
         Phi_T_K_T_Phi = Phi.T @ K.T @ Phi
         Phi_T_K_Phi = Phi.T @ K @ Phi
 
         alpha_k_0, alpha_k = calcul_alpha_one_step(Phi, K, M, u0, f, dt)
         u = res_direct_one_step(K, M, u0, f, dt)
 
-        lambda_k = calcul_lambda_one_step(Phi, K, M, u, alpha, dt)
+        lambda_k = calcul_lambda_one_step(Phi, K, M, u, alpha_k, dt)
         mu_k = lambda_k
         x0 += func(Phi, u, u0, alpha_k, alpha_k_0, 
                 lambda_k, mu_k, K, M, dt)
+    return x0
 
 
 
@@ -167,8 +170,8 @@ def calcul_alpha(Phi_T_M_Phi, Phi_T_K_Phi, Phi_T_M_u0, dt, n_max,
     return alpha
 
 def calcul_lambda_one_step(Phi, K, M, u, alpha, dt):
-    return np.linalg.solve(Phi_T_M_Phi + delta_t * Phi_T_K_Phi, 
-            delta_t * Phi_T_H @ (u - Phi @ alpha))
+    return np.linalg.solve(Phi.T@M@Phi + dt * Phi.T@K@Phi, 
+            dt * Phi.T @ (u - Phi @ alpha))
 
 
 def calcul_lambda(Phi, Phi_T_K_T_Phi, Phi_T_H, Phi_T_M_Phi,

@@ -59,7 +59,6 @@ def phi_test(Phi, discretisation_h, dt):
     return max(abs(Phi@alpha[-1]- u_real))
     #print("u_direct avec real : ", max(abs(u_direct - u_real)))
     #print("test calcul direct:",test_calcul_direct(u, f, zero, t_f, dt, 1/len(discretisation_h)))
-
 dt=0.1
 print("pour la fonction u = cos(z) * sin(t) : \n")
 discretisation_h = np.array(np.linspace(0, 1, 51))
