@@ -1,5 +1,5 @@
 import numpy as np
-from res_direct import res_direct
+from res_direct import res_direct_tridiagonal, calculer_K, calculer_M
 
 def discretisation(h_max):
     ret = [0]
@@ -79,6 +79,8 @@ def test_func_simple(dt, h_max):
     t_f = 3
     return test_calcul_direct(u, f, zero, t_f, dt, h_max)
 
+def give_nu_plus_un_demi(discretisation_h, nu):
+    return nu((discretisation_h[:-1] + discretisation_h[1:])/2)
 
 def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
     """ u : fonction solution
@@ -87,36 +89,43 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
     """
     def b(t):
         return u(1, t)
-    # discretisation_h = np.array([h for h in np.linspace(0, 1, 1+1/h_max)])
-    # ici on a h = h_max, la discretisation est uniforme
 
     if discretisation_h is None:
         discretisation_h= discretisation(h_max)
         # discretisation non uniforme
+    nu_1_2 = give_nu_plus_un_demi(discretisation_h, nu)
 
     u0 = u(discretisation_h, 0)
+    K = calculer_K(discretisation_h, nu_1_2)
+    M = calculer_M(K.shape[0] - 1)
+    dis = discretisation_h[1:-1]
+    all_f = []
+    for t in np.linspace(dt, t_f, t_f/dt):
+        all_f.append(np.concatenate(([a(t)], f(dis,t), [b(t)])))
+
+    hat_u = res_direct_tridiagonal(K, M, u0, all_f, dt)
+
+    """
     hat_u = res_direct(u0, f, discretisation_h, 
                     dt, t_f, 
-                    nu(discretisation_h),
-                    nu_prime(discretisation_h),
+                    nu_1_2,
                     a, b)
-
+    """
     # calcul d'erreur quadratique:
     uf = u(discretisation_h, t_f)
     return max(abs(uf - hat_u))
 
-"""
-dt = 0.1
-h = 0.1
-print("test avec df/dt = 0 : ")
-for i in range(7):
-    print(test_func_indep_t(dt, 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
-print()
-print("test avec df/dz = 0 : ")
-for i in range(7):
-    print(test_func_indep_z(10**(-1-i/2), h), "  :  10^(-", i/2+1, ")")
-print()
-print("test avec u = cosz sint : ")
-for i in range(7):
-    print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
-"""
+if __name__ == "__main__":
+    dt = 0.1
+    h = 0.1
+    print("test avec df/dt = 0 : ")
+    for i in range(7):
+        print(test_func_indep_t(dt, 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
+    print()
+    print("test avec df/dz = 0 : ")
+    for i in range(7):
+        print(test_func_indep_z(10**(-1-i/2), h), "  :  10^(-", i/2+1, ")")
+    print()
+    print("test avec u = cosz sint : ")
+    for i in range(7):
+        print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
