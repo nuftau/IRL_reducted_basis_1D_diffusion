@@ -103,7 +103,7 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
     for t in np.linspace(dt, t_f, t_f/dt):
         all_f.append(np.concatenate(([a(t)], f(dis,t), [b(t)])))
 
-    hat_u = res_direct_tridiagonal(K, M, u0, all_f, dt)
+    hat_u = res_direct_tridiagonal(K, M, u0, all_f, dt)[-1]
 
     """
     hat_u = res_direct(u0, f, discretisation_h, 

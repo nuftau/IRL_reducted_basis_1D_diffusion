@@ -13,7 +13,7 @@ def res_direct_tridiagonal(K, M, u0, all_f, dt):
         renvoie u(T)
         TODO tester
     """
-    u = u0
+    u = [u0]
     M_sur_dt = M/dt
     K_plus_M_sur_dt = K + M_sur_dt
     tridiag_for_scipy = np.array((
@@ -21,9 +21,8 @@ def res_direct_tridiagonal(K, M, u0, all_f, dt):
         np.diag(K_plus_M_sur_dt,k=0),
         np.concatenate((np.diag(K_plus_M_sur_dt,k=-1), [0]))))
     for f in all_f:
-        # u = la.solve(K + M/dt, f + M_sur_dt@u)
-        u = la.solve_banded((1, 1),
-                tridiag_for_scipy, f + M_sur_dt@u)
+        u.append(la.solve_banded((1, 1),
+                tridiag_for_scipy, f + M_sur_dt@u[-1]))
     return u
 
 def res_direct(u0, f_interieur, discretisation_z, 

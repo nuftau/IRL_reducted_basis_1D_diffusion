@@ -14,83 +14,55 @@ def calcul_lagrangien(Phi, m, ensemble_apprentissage):
     Phi = np.reshape(Phi, (m, -1))
     x0 = beta/2 * sum([(1 - np.linalg.norm((Phi.T)[i])**2)**2 \
             for i in range(Phi.shape[1])])
-    print("np.linalg.norm((Phi.T)[i]) : ", np.linalg.norm((Phi.T)[0]))
     ret = calcul_forall_k(calcul_sous_lagrangien, x0,
             Phi, ensemble_apprentissage)
     return ret
 
 
-def calcul_gradient(Phi, m, all_u, K, delta_t, n_max):
+def calcul_gradient(Phi, m, ensemble_apprentissage):
     """ renvoie le gradient du lagrangien en Phi,
     avec l'ensemble d'apprentissage"""
     Phi = np.reshape(Phi, (m, -1))
-    diagonale = [1 - np.linalg.norm(Phi[:][i])**2 \
+    diagonale = [1 - np.linalg.norm((Phi.T)[i])**2 \
             for i in range(Phi.shape[1])]
-    ret = beta * Phi @ np.diag(diagonale)
-    #return np.ravel(calcul_forall_k(calcul_sous_gradient, ret, 
-    #        Phi, all_u, K, delta_t, n_max))
+    x0 = - 2*beta * Phi @ np.diag(diagonale)
+    return np.ravel(calcul_forall_k(calcul_sous_gradient, x0, 
+            Phi, ensemble_apprentissage))
 
-def calcul_sous_lagrangien(Phi, u_k, alpha_k, lambda_k, mu_k, 
+def calcul_sous_lagrangien(Phi, u_k, f_k, alpha_k, lambda_k, mu_k, 
         K, M, delta_t):
-    """ renvoie (1/2)\sum_0^N {
+    """ renvoie (1/2)*sum_0^N {
             (u - Phi alpha)^T (u - Phi alpha)
-        } + \sum_0^{N-1} {
-            lambda ((Phi^T Phi / dt + Phi^T K Phi) alpha
-                        - Phi^T Phi alpha /dt)
-        } + mu^T (Phi^T Phi alpha_0 - Phi^T u_0)
+        } 
         H n'est *PAS* pris en compte
-        en fait si tout va bien L = G
-        donc pas besoin de faire la boucle suivante:
-        for n in range(len(lambda_k) - 1):
-            ret += lambda_k[n].T @ \
-                    ((Phi_T_Phi / delta_t + Phi_T_K_Phi) @ \
-                    alpha_k[n+1] - Phi_T_Phi @ alpha_k[n] / delta_t)
-        ret += mu_k.T @ (Phi_T_Phi @ alpha_k[0] - Phi.T @ u_k[0])
     """
     diff = np.array([u_n - Phi @ alpha_n for u_n, alpha_n \
             in zip(u_k, alpha_k)])
-    return np.linalg.norm(diff)**2 / 2
+    return np.linalg.norm(u_k - Phi@alpha_k)**2 / 2
 
 
-def calcul_sous_gradient(Phi, u_k, alpha_k, lambda_k, mu_k, 
-        K, delta_t, n_max):
+def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k, 
+        K, M, dt):
     """
-    renvoie \sum_{n=0}^N {
-        H\Phi\alpha_n\alpha_n^T - H u_n\alpha_n^T}
-    + \sum_{n=0}^{n-1} {
-        \Phi (\lambda_n((\alpha_{n+1} - \alpha_n)/delta_t)^T
-        +(\alpha_{n+1} - \alpha_n)/delta_t * \lambda_n^T)
-        +K^T\Phi \lambda_n \alpha_{n+1}^T
-        +K\Phi \alpha_{n+1}\lambda_n^T}
-    - u_0 \mu^T
+        renvoie la partie du gradient
+        spécifique à l'échantillon k.
     """
-    return 0
+    ret = 0
+    for n in range(len(lambda_k)):
+        ret_n = (Phi@alpha_k[n])@alpha_k[n].T
+        ret_n -= u_k[n]@alpha_k[n].T
 
-def calcul_forall_k_one_step(func, x0, Phi, ensemble_apprentissage):
-    """ calcule func pour chaque élément de 
-    l'ensemble d'apprentissage:
-        un tuple de l'ensemble d'apprentissage est:
-        (u0, K, f, dt)
-        en conservant le formalisme utilisé dans le pdf
-        on pourra par la suite ajouter H dans le tuple...
-        NE FAIS QUE DES ONE_STEP
-    """
-    # \beta\Phi diag(...) est le seul element qui depend
-    # pas de l'ensemble d'apprentissage
-    for u0, K, f, dt in ensemble_apprentissage:
-        M = calculer_M(len(u0) - 1)
-        Phi_T_M_Phi = Phi.T@M@Phi
-        Phi_T_K_T_Phi = Phi.T @ K.T @ Phi
-        Phi_T_K_Phi = Phi.T @ K @ Phi
-
-        alpha_k_0, alpha_k = calcul_alpha_one_step(Phi, K, M, u0, f, dt)
-        u = res_direct_one_step(K, M, u0, f, dt)
-
-        lambda_k = calcul_lambda_one_step(Phi, K, M, u, alpha_k, dt)
-        mu_k = lambda_k
-        x0 += func(Phi, u, u0, alpha_k, alpha_k_0, 
-                lambda_k, mu_k, K, M, dt)
-    return x0
+        diff = alpha_k[n+1] - alpha_k[n]
+        ret_n += M@Phi@(lambda_k[n]@diff.T+diff@lambda_k[n].T)/dt
+        ret_n += K@Phi@alpha_k[n+1]@lambda_k[n].T
+        ret_n += K.T@Phi@lambda_k[n]@alpha_k[n+1].T
+        ret_n -= f_k[n]@lambda_k[n].T
+        # ici c'est bien all_f[n], car l'utilisateur envoie
+        # (normalement) pas f0. donc all_f[n] = f_{n+1}
+        ret += ret_n
+    #ret += M@Phi@(alpha_k[0]@mu_k.T + mu_k@alpha_k[0].T)
+    ret -= M@u_k[0]@mu_k.T
+    return ret
 
 def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
     """
@@ -108,12 +80,18 @@ def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
     for u0, K, all_f, dt in ensemble_apprentissage:
         M = calculer_M(len(u0) - 1)
 
+        u0 = u0.reshape(u0.shape[0], -1)
+        # u0 doit être un vecteur, c'est pas
+        # tout à fait pareil qu'un nparray :
+        # si on fait rien, on peut pas faire
+        # de transposition
+
         alpha = calcul_alpha(Phi, M, K, u0, all_f, dt)
         u = res_direct_tridiagonal(K, M, u0, all_f, dt)
 
         lambda_k = calcul_lambda(Phi, K, M, u, alpha, dt, len(all_f))
         mu_k = lambda_k[0]
-        x0 += func(Phi, u, alpha, lambda_k, mu_k, K, M, dt)
+        x0 += func(Phi, u, all_f, alpha, lambda_k, mu_k, K, M, dt)
     return x0
 
 def calcul_alpha(Phi, M, K, u0, all_f, dt):
@@ -122,6 +100,7 @@ def calcul_alpha(Phi, M, K, u0, all_f, dt):
         all_f doit être itérable, où le nième
         élément est le second membre de l'équation
         au temps t^n.
+        autrement dit, f_0 n'est pas dans all_f
 
         renvoie: tableau de nparray, 
                     alpha^n pour chaque temps t^n,
@@ -136,21 +115,23 @@ def calcul_alpha(Phi, M, K, u0, all_f, dt):
         Phi.T@M@u0, rcond=None)[0]]
     # seconde equation = Phi^T M Phi \alpha0 = \Phi^T M u0
     Phi_T_M_Phi_dt = zero + Phi_T_M_Phi / dt
+    #on fait zero + pour être sur d'avoir un nparray de dim2
     for fn in all_f:
         second_membre = Phi.T @ fn + Phi_T_M_Phi_dt @ alpha[-1]
         alpha.append(np.linalg.solve(Phi_T_M_Phi_dt + \
-                Phi.T@K@Phi, second_membre))
+                Phi.T@K@Phi, zero+second_membre))
     return alpha
 
 
 def calcul_lambda(Phi, K, M, u, alpha, dt, n_max):
     """attention dans le document c'est bien Phi^T K^T Phi"""
     lambda_ret = [0 for _ in range(n_max)]
-    lambda_ret[n_max - 1] = np.zeros(len(alpha[n_max - 1]))
+    lambda_ret[n_max - 1] = np.zeros((Phi.shape[1], 1))
+    # lambda est de taille m (nombre de colones de Phi)
     Phi_T_M_Phi = Phi.T@M@Phi
     for n in range(n_max-1, 0, -1):
         lambda_ret[n-1] = np.linalg.solve(Phi_T_M_Phi + \
                 dt * Phi.T@K.T@Phi, Phi_T_M_Phi@lambda_ret[n] + \
-                dt * Phi.T @ (u - Phi @ alpha[n]))
+                dt * Phi.T @ (u[n] - Phi @ alpha[n]))
     return lambda_ret
 
