@@ -61,6 +61,31 @@ def test_func_indep_t(dt, h_max):
     return test_calcul_direct(u_t_independant, f_t_independant, 
             zero, t_f, dt, h_max)
 
+def test_func_explode(dt, h_max):
+    """renvoie l'erreur entre la vraie solution et la solution
+        par différences finies avec la fonction 
+        cos(z) * sin(alpha t)
+    """
+    alpha = 1
+    def u(z, t):
+        #return np.exp(z) * np.sin(alpha*t)
+        return np.exp(z) * np.exp(t)
+
+    def f(z, t):
+        """
+        return alpha * np.cos(alpha*t) * np.exp(z) - \
+                nu_prime(z) * np.exp(z)* np.sin(alpha*t) - \
+                nu(z) * np.exp(z) * np.sin(alpha*t)
+        """
+        return np.exp(t)*np.exp(z) - np.exp(t)*(nu(z) + nu_prime(z)) * np.exp(z)
+
+    def un(t):
+        return np.exp(t)
+
+    t_f = 3
+    return test_calcul_direct(u, f, un, t_f, dt, h_max)
+
+
 def test_func_simple(dt, h_max):
     """renvoie l'erreur entre la vraie solution et la solution
         par différences finies avec la fonction 
@@ -77,7 +102,8 @@ def test_func_simple(dt, h_max):
             
 
     t_f = 3
-    return test_calcul_direct(u, f, zero, t_f, dt, h_max)
+    discretisation_h = np.array(np.linspace(0, 30, 1+1/h_max))
+    return test_calcul_direct(u, f, zero, t_f, dt, h_max, discretisation_h)
 
 def give_nu_plus_un_demi(discretisation_h, nu):
     return nu((discretisation_h[:-1] + discretisation_h[1:])/2)
@@ -87,12 +113,15 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
     f : second membre
     a: (du/dz (0) )(t)
     """
-    def b(t):
-        return u(1, t)
-
+    discretisation_h = np.array(np.linspace(0, 1, 1+1/h_max))
     if discretisation_h is None:
         discretisation_h= discretisation(h_max)
         # discretisation non uniforme
+
+    def b(t):
+        return u(discretisation_h[-1], t)
+
+
     nu_1_2 = give_nu_plus_un_demi(discretisation_h, nu)
 
     u0 = u(discretisation_h, 0)
@@ -118,6 +147,7 @@ def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
 if __name__ == "__main__":
     dt = 0.1
     h = 0.1
+    """
     print("test avec df/dt = 0 : ")
     for i in range(7):
         print(test_func_indep_t(dt, 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
@@ -126,6 +156,26 @@ if __name__ == "__main__":
     for i in range(7):
         print(test_func_indep_z(10**(-1-i/2), h), "  :  10^(-", i/2+1, ")")
     print()
+    """
+    error = []
+    step_time_h = []
     print("test avec u = cosz sint : ")
-    for i in range(7):
-        print(test_func_simple(10**(-1-i/2), 10**(-1-i/2)), "  :  10^(-", i/2+1, ")")
+    dt = 0.01
+    try:
+        for i in range(1,80):
+            step = 10**(-i/20)
+            ret = test_func_explode(step,step)
+            print(ret, "  :  10^(-", i/20+1, ")")
+            error.append(ret)
+            step_time_h.append(1/step)
+    except:
+        pass
+
+    import matplotlib.pyplot as plt
+    plt.plot(step_time_h, error, 'r+')
+    plt.title("Précision des différences finies")
+    plt.xlabel("1/dt = 1/h_max")
+    plt.ylabel("Erreur")
+    plt.yscale("log")
+    plt.xscale("log")
+    plt.show()
