@@ -19,6 +19,9 @@ def nu(z):
 def nu_prime(z):
     return - 2 * (1 - z)
 
+def nu_seconde(z):
+    return 2
+
 def b_test(u, h_f):
     def b(t):
         return u(h_f, t)
@@ -68,22 +71,19 @@ def test_func_explode(dt, h_max):
     """
     alpha = 1
     def u(z, t):
-        #return np.exp(z) * np.sin(alpha*t)
         return np.exp(z) * np.exp(t)
 
-    def f(z, t):
-        """
-        return alpha * np.cos(alpha*t) * np.exp(z) - \
-                nu_prime(z) * np.exp(z)* np.sin(alpha*t) - \
-                nu(z) * np.exp(z) * np.sin(alpha*t)
-        """
-        return np.exp(t)*np.exp(z) - np.exp(t)*(nu(z) + nu_prime(z)) * np.exp(z)
+    def expanded_f(dis, t):
+        diff = dis[2:] - 2 * dis[1:-1] + dis[:-2]
+        z = dis[1:-1]
+        return - np.exp(t + z) * ( nu(z) - 1 + nu_prime(z) \
+                + diff*(nu(z) / 3 + nu_seconde(z)/4 + nu_prime(z) / 2))
 
-    def un(t):
+    def derivee_gauche(t):
         return np.exp(t)
 
     t_f = 3
-    return test_calcul_direct(u, f, un, t_f, dt, h_max)
+    return test_calcul_direct_expanded_equation(u, expanded_f, derivee_gauche, t_f, dt, h_max)
 
 
 def test_func_simple(dt, h_max):
@@ -108,18 +108,50 @@ def test_func_simple(dt, h_max):
 def give_nu_plus_un_demi(discretisation_h, nu):
     return nu((discretisation_h[:-1] + discretisation_h[1:])/2)
 
-def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
+def test_calcul_direct_expanded_equation(u, f, a, t_f, dt, h_max, discretisation_h=None):
     """ u : fonction solution
     f : second membre
     a: (du/dz (0) )(t)
     """
-    discretisation_h = np.array(np.linspace(0, 1, 1+1/h_max))
+    borne_z = 1
+    discretisation_h = np.array(np.linspace(0, borne_z, 1+borne_z/h_max))
     if discretisation_h is None:
         discretisation_h= discretisation(h_max)
         # discretisation non uniforme
 
     def b(t):
-        return u(discretisation_h[-1], t)
+        return u(borne_z, t)
+
+
+    nu_1_2 = give_nu_plus_un_demi(discretisation_h, nu)
+
+    u0 = u(discretisation_h, 0)
+    K = calculer_K(discretisation_h, nu_1_2)
+    M = calculer_M(K.shape[0] - 1)
+    dis = discretisation_h#[1:-1]
+    all_f = []
+    for t in np.linspace(dt, t_f, t_f/dt):
+        all_f.append(np.concatenate(([a(t)], f(dis,t), [b(t)])))
+
+    hat_u = res_direct_tridiagonal(K, M, u0, all_f, dt)[-1]
+    # calcul d'erreur quadratique:
+    uf = u(discretisation_h, t_f)
+    return max(abs(uf - hat_u))
+
+
+def test_calcul_direct(u, f, a, t_f, dt, h_max, discretisation_h=None):
+    """ u : fonction solution
+    f : second membre
+    a: (du/dz (0) )(t)
+    """
+    borne_z = 1
+    discretisation_h = np.array(np.linspace(0, borne_z, 1+borne_z/h_max))
+    if discretisation_h is None:
+        discretisation_h= discretisation(h_max)
+        # discretisation non uniforme
+
+    def b(t):
+        return u(borne_z, t)
 
 
     nu_1_2 = give_nu_plus_un_demi(discretisation_h, nu)
