@@ -1,7 +1,7 @@
 import numpy as np
 from res_direct import res_direct, calculer_M, calculer_K, res_direct_one_step, res_direct_tridiagonal
 
-beta = 0.00001
+beta = 0.0000000000000001
 
 def calcul_lagrangien(Phi, m, ensemble_apprentissage):
     """ renvoie le lagrangien en Phi,
@@ -25,7 +25,7 @@ def calcul_gradient(Phi, m, ensemble_apprentissage):
     Phi = np.reshape(Phi, (m, -1))
     diagonale = [1 - np.vdot(Phi[:,i], Phi[:,i]) \
             for i in range(Phi.shape[1])]
-    x0 = - 2*beta * Phi @ np.diag(diagonale)
+    x0 = - 2* beta * Phi @ np.diag(diagonale)
     return np.ravel(calcul_forall_k(calcul_sous_gradient, x0, 
             Phi, ensemble_apprentissage))
 
@@ -46,7 +46,6 @@ def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
     """
         renvoie la partie du gradient
         spécifique à l'échantillon k.
-    """
     ret = 0
     for n in range(len(lambda_k)):
         ret_n = np.outer(Phi@alpha_k[n],alpha_k[n])
@@ -64,6 +63,38 @@ def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
     #ret += M@Phi@(alpha_k[0]@mu_k.T + mu_k@alpha_k[0].T)
     ret -= np.outer(M@u_k[0],mu_k)
     return ret
+    """
+    ret = 0
+    if len(alpha_k[0].shape) == 1:
+        for n in range(len(lambda_k)):
+            alpha_k[n] = alpha_k[n].reshape(
+                    (alpha_k[n].shape[0], -1))
+            lambda_k[n] = lambda_k[n].reshape(
+                    (lambda_k[n].shape[0], -1))
+            u_k[n] = u_k[n].reshape(
+                    (u_k[n].shape[0], -1))
+
+        alpha_k[-1] = alpha_k[-1].reshape(
+                (alpha_k[-1].shape[0], -1))
+        mu_k = mu_k.reshape((mu_k.shape[0], -1))
+
+    for n in range(len(lambda_k)):
+        ret_n = Phi@alpha_k[n] @ alpha_k[n].T
+        ret_n -= u_k[n] @ alpha_k[n].T
+
+        diff = alpha_k[n+1] - alpha_k[n]
+        ret_n += M@Phi@(lambda_k[n]@diff.T+ \
+                diff@lambda_k[n].T)/dt
+        ret_n += np.outer(K@Phi@alpha_k[n+1],lambda_k[n])
+        ret_n += np.outer(K.T@Phi@lambda_k[n],alpha_k[n+1])
+        ret_n -= np.outer(f_k[n],lambda_k[n])
+        # ici c'est bien all_f[n], car l'utilisateur envoie
+        # (normalement) pas f0. donc all_f[n] = f_{n+1}
+        ret += ret_n
+    #ret += M@Phi@(alpha_k[0]@mu_k.T + mu_k@alpha_k[0].T)
+    ret -= np.outer(M@u_k[0],mu_k)
+    return ret
+
 
 def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
     """
@@ -114,21 +145,31 @@ def calcul_alpha(Phi, M, K, u0, all_f, dt):
     Phi_T_M_Phi_dt = Phi_T_M_Phi / dt
     #on fait zero + pour être sur d'avoir un nparray de dim2
     for fn in all_f:
-        second_membre = Phi.T @ fn + Phi_T_M_Phi_dt @ alpha[-1]
-        alpha.append(np.linalg.solve(Phi_T_M_Phi_dt + \
-                Phi.T@K@Phi, second_membre))
+        try:
+            second_membre = Phi.T @ fn + Phi_T_M_Phi_dt @ alpha[-1]
+            alpha.append(np.linalg.lstsq(Phi_T_M_Phi_dt + \
+                    Phi.T@K@Phi, second_membre, rcond=None)[0])
+        except(np.linalg.linalg.LinAlgError):
+            print("erreur : singular matrix")
+            print(Phi)
+            raise
     return alpha
 
 
 def calcul_lambda(Phi, K, M, u, alpha, dt, n_max):
     """attention dans le document c'est bien Phi^T K^T Phi"""
     lambda_ret = [0 for _ in range(n_max)]
-    lambda_ret[n_max - 1] = np.zeros((Phi.shape[1], 1))
+    lambda_ret[n_max - 1] = np.zeros((Phi.shape[1], ))
     # lambda est de taille m (nombre de colones de Phi)
     Phi_T_M_Phi = Phi.T@M@Phi
     for n in range(n_max-1, 0, -1):
-        lambda_ret[n-1] = np.linalg.solve(Phi_T_M_Phi + \
-                dt * Phi.T@K.T@Phi, Phi_T_M_Phi@lambda_ret[n] + \
-                dt * Phi.T @ (u[n] - Phi @ alpha[n]))
+        try:
+            lambda_ret[n-1] = np.linalg.lstsq(Phi_T_M_Phi + \
+                    dt * Phi.T@K.T@Phi, Phi_T_M_Phi@lambda_ret[n] + \
+                    dt * Phi.T @ (u[n] - Phi @ alpha[n]), rcond=None)[0]
+        except(np.linalg.linalg.LinAlgError):
+            print("erreur : singular matrix : ")
+            print(Phi)
+            raise
     return lambda_ret
 

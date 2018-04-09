@@ -69,6 +69,8 @@ def test_func_explode(dt, h_max):
         par différences finies avec la fonction 
         cos(z) * sin(alpha t)
     """
+    discretisation_h= discretisation(h_max)
+    first_h = discretisation_h[1] - discretisation_h[0]
     alpha = 1
     def u(z, t):
         return np.exp(z) * np.exp(t)
@@ -80,10 +82,10 @@ def test_func_explode(dt, h_max):
                 + diff*(nu(z) / 3 + nu_seconde(z)/4 + nu_prime(z) / 2))
 
     def derivee_gauche(t):
-        return np.exp(t)
+        return np.exp(t) * (1 + first_h/2)
 
     t_f = 3
-    return test_calcul_direct_expanded_equation(u, expanded_f, derivee_gauche, t_f, dt, h_max)
+    return test_calcul_direct_expanded_equation(u, expanded_f, derivee_gauche, t_f, dt, h_max, discretisation_h)
 
 
 def test_func_simple(dt, h_max):
@@ -114,7 +116,6 @@ def test_calcul_direct_expanded_equation(u, f, a, t_f, dt, h_max, discretisation
     a: (du/dz (0) )(t)
     """
     borne_z = 1
-    discretisation_h = np.array(np.linspace(0, borne_z, 1+borne_z/h_max))
     if discretisation_h is None:
         discretisation_h= discretisation(h_max)
         # discretisation non uniforme
@@ -196,7 +197,7 @@ if __name__ == "__main__":
     try:
         for i in range(1,80):
             step = 10**(-i/20)
-            ret = test_func_explode(step,step)
+            ret = test_func_explode(step*step,step)
             print(ret, "  :  10^(-", i/20+1, ")")
             error.append(ret)
             step_time_h.append(1/step)
@@ -205,8 +206,8 @@ if __name__ == "__main__":
 
     import matplotlib.pyplot as plt
     plt.plot(step_time_h, error, 'r+')
-    plt.title("Précision des différences finies")
-    plt.xlabel("1/dt = 1/h_max")
+    plt.title("Résolution de l'équation équivalente")
+    plt.xlabel("1/sqrt(dt) = 1/h_max")
     plt.ylabel("Erreur")
     plt.yscale("log")
     plt.xscale("log")

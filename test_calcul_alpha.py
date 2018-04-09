@@ -1,6 +1,6 @@
 import numpy as np
 from calcul_lagrangien import calcul_alpha
-from test_calcul_direct import discretisation, zero, nu, nu_prime, test_calcul_direct, test_func_simple, give_nu_plus_un_demi
+from test_calcul_direct import discretisation, zero, nu, nu_prime, nu_seconde, test_calcul_direct, test_func_simple, give_nu_plus_un_demi
 from res_direct import res_direct, calculer_K, calculer_M, res_direct_tridiagonal
 
 def u2(z, t):
@@ -10,10 +10,13 @@ def f2(z, t):
     return 1+z-z#*np.cos(1*t) + z - z
 
 def u3(z, t):
-    return np.exp(z + t)
+    return np.exp(z + t+3)
 
-def f3(z, t):
-    return np.exp(z+t) - (nu_prime(z)+nu(z)) * np.exp(z+t)
+def f3(dis, t):
+    diff = dis[2:] - 2 * dis[1:-1] + dis[:-2]
+    z = dis[1:-1]
+    return - np.exp(t + z+3) * ( nu(z) - 1 + nu_prime(z) \
+            + diff*(nu(z) / 3 + nu_seconde(z)/4 + nu_prime(z) / 2))
 
 def u(z, t):
     return np.cos(z) * np.sin(1*t)
@@ -33,15 +36,18 @@ def phi_test(Phi, discretisation_h, dt):
     teste le calcul des alpha avec Phi
     """
     u0 = u3(discretisation_h, 0)
-    t_f = 3
+    h_first = discretisation_h[1] - discretisation_h[0]
+    last_z = discretisation_h[-1]
+    t_f = 1
     nu_1_2 = give_nu_plus_un_demi(discretisation_h, nu)
     K = calculer_K(discretisation_h, nu_1_2) 
     M = calculer_M(len(discretisation_h) - 1)
     second_membre = []
     for t in np.linspace(dt, t_f, t_f/dt):
-        second_membre.append(np.concatenate(([np.exp(t)],
-            f3(discretisation_h[1:-1], t),
-            [u3(discretisation_h[-1], t)])))
+        second_membre.append(
+                np.concatenate(([np.exp(3+t) * (1 + h_first / 2)],
+            f3(discretisation_h, t),
+            [u3(last_z, t)])))
 
     alpha = calcul_alpha(Phi,M,K,u0,second_membre,dt)
     u_direct = res_direct_tridiagonal(K, M, u0, second_membre, dt) 
@@ -63,13 +69,13 @@ if __name__ == "__main__":
     error = []
     step_time_h = []
     try:
-        for i in range(50):
-            discretisation_h = np.array(np.linspace(0, 3, 10**(i/12+1)))
+        for i in range(12,50):
+            discretisation_h = np.array(np.linspace(0, 3, 1+10**(i/12)))
             Phi = ((np.exp(discretisation_h)).T).reshape(-1, 1)
-            ret = phi_test(Phi, discretisation_h, 10**(-1-i/12))
-            print(ret, "avec Phi = cos(z_i) et dt = h =",10**(-i/12-1))
+            ret = phi_test(Phi, discretisation_h, 10**(-5))
+            print(ret, "avec Phi = cos(z_i) et dt = h =",10**(-i/12))
             error.append(ret)
-            step_time_h.append(10**(i/12 + 1))
+            step_time_h.append(10**(i/12))
 
     except:
         pass
@@ -77,7 +83,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     plt.plot(step_time_h, error, 'r+')
     plt.title("Précision du calcul des alpha")
-    plt.xlabel("1/dt = 1/h_max")
+    plt.xlabel("1/hmax, avec dt = 10⁻⁵")
     plt.ylabel("Erreur")
     plt.yscale("log")
     plt.xscale("log")
