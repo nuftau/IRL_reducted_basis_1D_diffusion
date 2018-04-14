@@ -5,7 +5,7 @@ beta = 0.0000000000000001
 
 def calcul_lagrangien(Phi, m, ensemble_apprentissage):
     """ renvoie le lagrangien en Phi,
-    avec l'ensemble d'apprentissage
+    avec l'ensemble d'apprentissage en entree
         un tuple de l'ensemble d'apprentissage est:
         (u0, K, f, dt)
         A TESTER !

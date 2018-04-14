@@ -41,7 +41,7 @@ except:
 #on pose le problème : 
 m = 51
 dt=0.1
-z_max = 3
+z_max = 6
 discretisation_h = np.array(np.linspace(0, z_max, m))
 Phi_arbitraire = np.reshape(np.exp(discretisation_h), (m, 1))
 nu_1_2 = give_nu_plus_un_demi(discretisation_h, nu)
@@ -63,7 +63,7 @@ try:
         res_opti = opti.minimize(calcul_lagrangien, Phi, jac=calcul_gradient, args=(m, ensemble_apprentissage), method='BFGS')
         print(res_opti.message)
         print("fonction objectif en Phi: ", calcul_lagrangien(res_opti.x, m, ensemble_apprentissage))
-        Phi = np.reshape(Phi, (m, -1))
+        Phi = np.reshape(res_opti.x, (m, -1))
     print(Phi)
 except:
     raise
