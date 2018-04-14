@@ -1,7 +1,15 @@
 import numpy as np
+from itertools import repeat
+import concurrent.futures
 from res_direct import res_direct, calculer_M, calculer_K, res_direct_one_step, res_direct_tridiagonal
 
-beta = 0.0000000000000001
+beta = 0#000001
+
+def calcul_error(Phi, m, ensemble_apprentissage):
+    Phi = np.reshape(Phi, (m, -1))
+    x0 = 0
+    return calcul_forall_k(sous_calcul_erreur, x0,
+            Phi, ensemble_apprentissage)
 
 def calcul_lagrangien(Phi, m, ensemble_apprentissage):
     """ renvoie le lagrangien en Phi,
@@ -39,6 +47,16 @@ def calcul_sous_lagrangien(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
     diff = np.array([u_n - Phi @ alpha_n for u_n, alpha_n \
             in zip(u_k, alpha_k)])
     return np.vdot(diff,diff) / 2
+
+def sous_calcul_erreur(Phi, u_k, f_k, alpha_k, lambda_k, mu_k, 
+        K, M, delta_t):
+    """ renvoie (1/2)*sum_0^N {
+            (u - Phi alpha)^T (u - Phi alpha)
+        } 
+        H n'est *PAS* pris en compte
+    """
+    return [max(abs(u_n - Phi @ alpha_n)) for u_n, alpha_n \
+            in zip(u_k, alpha_k)][0]
 
 
 def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k, 
@@ -96,6 +114,26 @@ def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
     return ret
 
 
+
+def func_parallel(tuple_data_func_Phi):
+    """ fait le travail de chercher les alpha/lambda/mu
+    pour un élément de la base d'apprentissage tuple_data.
+    appelle func.
+    Est faite pour etre appelee en parallel
+    """
+    u0, K, all_f, dt = tuple_data_func_Phi[0]
+    func = tuple_data_func_Phi[1]
+    Phi = tuple_data_func_Phi[2]
+    M = calculer_M(len(u0) - 1)
+
+    alpha = calcul_alpha(Phi, M, K, u0, all_f, dt)
+    u = res_direct_tridiagonal(K, M, u0, all_f, dt)
+
+    lambda_k = calcul_lambda(Phi, K, M, u, alpha, dt, len(all_f))
+    mu_k = lambda_k[0]
+    return func(Phi, u, all_f, alpha, lambda_k, mu_k, K, M, dt)
+ 
+
 def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
     """
         calcule func pour chaque élément de 
@@ -109,21 +147,8 @@ def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
     """
     # \beta\Phi diag(...) est le seul element qui depend
     # pas de l'ensemble d'apprentissage
-    for u0, K, all_f, dt in ensemble_apprentissage:
-        M = calculer_M(len(u0) - 1)
-
-        # u0 = u0.reshape(u0.shape[0], -1)
-        # u0 doit être un vecteur, c'est pas
-        # tout à fait pareil qu'un nparray :
-        # si on fait rien, on peut pas faire
-        # de transposition
-
-        alpha = calcul_alpha(Phi, M, K, u0, all_f, dt)
-        u = res_direct_tridiagonal(K, M, u0, all_f, dt)
-
-        lambda_k = calcul_lambda(Phi, K, M, u, alpha, dt, len(all_f))
-        mu_k = lambda_k[0]
-        x0 += func(Phi, u, all_f, alpha, lambda_k, mu_k, K, M, dt)
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        x0 += sum(executor.map(func_parallel, zip(ensemble_apprentissage, repeat(func), repeat(Phi))))
     return x0
 
 def calcul_alpha(Phi, M, K, u0, all_f, dt):
