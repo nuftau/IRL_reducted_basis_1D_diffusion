@@ -31,7 +31,7 @@ for tk in range(0,int(len(rootgrp["zhalf"][:,0,0,0])/2), 50):
     discretisation_h = rootgrp["zhalf"][tk,:,0,0]
     u0 = rootgrp["temp"][tk,:,0,0]
     nu_1_2 = rootgrp["kz"][tk,1:,0,0] # on enlève la premiere valeur
-    # (normalement faudrait prendre nu en les points intermédiaires
+    # (normalement faudrait prendre nu en les points intermédiaires)
     K = calculer_K(discretisation_h, nu_1_2)
     ensemble_apprentissage += [(u0, K, all_f, dt)]
 
@@ -54,37 +54,23 @@ for tk in range(int(len(rootgrp["zhalf"][:,0,0,0])/2),
     ensemble_test += [(u0, K, all_f, dt)]
 
 
-Phi_arbitraire = np.reshape(discretisation_h[-1]-discretisation_h, (-1, 1))
+# ------------ Calcul de la base POD pour Phi
+from modred.pod import compute_POD_matrices_direct_method
+vecs = rootgrp["temp"][:,:,0,0].T
+# ceci etait le calcul de pod...
+erreur_moyenne = []
+erreur_moyenne_only_pod = []
 Phi = None
+
 try:
-    for i in range(2,40):
-        if Phi is not None:
-            Phi = np.hstack((Phi, Phi_arbitraire))
-        else:
-            Phi = np.copy(Phi_arbitraire)
+r   for i in range(2,80):
+        Phi = compute_POD_matrices_direct_method(vecs, range(i))[0]
         Phi = np.ravel(Phi)
-        res_opti = opti.minimize(calcul_lagrangien, Phi, args=(nb_h, ensemble_apprentissage), method='BFGS')
-        # print(res_opti)
-        print("erreur moyenne (en norme inf.) avec l'ensemble d'apprentissage : Phi est de taille", i-1)
-        print(calcul_error(Phi, nb_h, ensemble_apprentissage)/len(ensemble_apprentissage))
-        print("racine de la moyenne de l'err. quadratique")
-        err = calcul_lagrangien(Phi, nb_h, ensemble_apprentissage)
-        err /= len(ensemble_apprentissage) * 79 * (n-2)
-        print(math.sqrt(err))
-
-        print("sur l'ensemble test, on fait les memes calcul : ")
-        print(calcul_error(Phi, nb_h, ensemble_test)/len(ensemble_test))
-        print("racine de la moyenne de l'err. quadratique")
-        err = calcul_lagrangien(Phi, nb_h, ensemble_test)
-        err /= len(ensemble_test) * 79 * (n - 2)
-
-        print(math.sqrt(err))
-        # print("erreur (en norme inf.) avec l'ensemble test :")
-        print("on va passer à la phase", i)
-        Phi = np.reshape(res_opti.x, (nb_h, -1))
+        erreur_moyenne_only_pod += [calcul_error(Phi, nb_h, ensemble_apprentissage)/len(ensemble_apprentissage)]
+        res_opti = opti.minimize(calcul_lagrangien, Phi, jac=calcul_gradient, args=(nb_h, ensemble_apprentissage), method='BFGS', options={'disp': True})
+        erreur_moyenne += [calcul_error(Phi, nb_h, ensemble_apprentissage)/len(ensemble_apprentissage)]
 except:
-    print("exception levée.")
+    pass
 
-#print(Phi)
-
+print(erreur_moyenne)
 rootgrp.close()

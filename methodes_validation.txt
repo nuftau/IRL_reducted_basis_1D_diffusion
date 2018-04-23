@@ -1,0 +1,11 @@
+pour valider et mettre en valeur : != juste une courbe ! 
+
+validation croisée
+extrapolation -> vitesse à laquelle ça diverge
+
+TODO mettre en évidence les points sensibles
+(dérivée de beta/2(...) qui vaut lors 2beta(...),
+et fonction objective discrète qui prend pas premier/dernier elemt)
+
+expliquer le "erreur" sur le doc -> norme infinie?
+TODO utiliser linalg.solve et si exception : linalg.lstsq

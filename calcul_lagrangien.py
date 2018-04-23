@@ -44,8 +44,11 @@ def calcul_sous_lagrangien(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
         } 
         H n'est *PAS* pris en compte
     """
-    diff = np.array([u_n - Phi @ alpha_n for u_n, alpha_n \
-            in zip(u_k, alpha_k)])
+    diff = [u_n - Phi @ alpha_n for u_n, alpha_n \
+            in zip(u_k, alpha_k)]
+    diff.pop(0)
+    diff.pop(-1) # pas opti mais c'est pour le bien du test
+    diff = np.array(diff)
     return np.vdot(diff,diff) / 2
 
 def sous_calcul_erreur(Phi, u_k, f_k, alpha_k, lambda_k, mu_k, 
@@ -64,23 +67,6 @@ def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
     """
         renvoie la partie du gradient
         spécifique à l'échantillon k.
-    ret = 0
-    for n in range(len(lambda_k)):
-        ret_n = np.outer(Phi@alpha_k[n],alpha_k[n])
-        ret_n -= np.outer(u_k[n],alpha_k[n])
-
-        diff = alpha_k[n+1] - alpha_k[n]
-        ret_n += M@Phi@(np.outer(lambda_k[n],diff)+ \
-                np.outer(diff,lambda_k[n]))/dt
-        ret_n += np.outer(K@Phi@alpha_k[n+1],lambda_k[n])
-        ret_n += np.outer(K.T@Phi@lambda_k[n],alpha_k[n+1])
-        ret_n -= np.outer(f_k[n],lambda_k[n])
-        # ici c'est bien all_f[n], car l'utilisateur envoie
-        # (normalement) pas f0. donc all_f[n] = f_{n+1}
-        ret += ret_n
-    #ret += M@Phi@(alpha_k[0]@mu_k.T + mu_k@alpha_k[0].T)
-    ret -= np.outer(M@u_k[0],mu_k)
-    return ret
     """
     ret = 0
     if len(alpha_k[0].shape) == 1:
@@ -110,6 +96,8 @@ def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
         # (normalement) pas f0. donc all_f[n] = f_{n+1}
         ret += ret_n
     #ret += M@Phi@(alpha_k[0]@mu_k.T + mu_k@alpha_k[0].T)
+    ret_n -= Phi@alpha_k[0] @ alpha_k[0].T
+    ret_n += u_k[0] @ alpha_k[0].T
     ret -= np.outer(M@u_k[0],mu_k)
     return ret
 
@@ -143,6 +131,9 @@ def calcul_forall_k(func, x0, Phi, ensemble_apprentissage):
         avec all_f un itérable comme dans calcul_alpha
         en conservant le formalisme utilisé dans le pdf
         on pourra par la suite ajouter H dans le tuple...
+        On pourra aussi faire en sorte que K ne soit plus
+        constant : tout ce travail est à faire dans
+        func_parallel
 
     """
     # \beta\Phi diag(...) est le seul element qui depend
