@@ -8,4 +8,14 @@ TODO mettre en évidence les points sensibles
 et fonction objective discrète qui prend pas premier/dernier elemt)
 
 expliquer le "erreur" sur le doc -> norme infinie?
-TODO utiliser linalg.solve et si exception : linalg.lstsq
+
+TODO utiliser linalg.solve et si exception : linalg.lstsq (fait)
+
+
+
+tracer erreur L2, ||inf, histogrammes avec les 2
+à afficher: 
+tete de Phi
+quelques profils de nu
+quelques profil de T°
+
