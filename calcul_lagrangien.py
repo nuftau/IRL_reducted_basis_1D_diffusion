@@ -175,8 +175,8 @@ def calcul_alpha(Phi, M, K, u0, all_f, dt):
     Phi_T_M_Phi_dt = Phi_T_M_Phi / dt
     Phi_T_K_Phi = Phi.T@K@Phi
     #on fait zero + pour être sur d'avoir un nparray de dim2
+    second_membre = Phi.T @ all_f[0] + Phi_T_M_Phi_dt @ alpha[-1]
     for fn in all_f:
-        second_membre = Phi.T @ fn + Phi_T_M_Phi_dt @ alpha[-1]
         try:
             alpha.append(np.linalg.solve(Phi_T_M_Phi_dt + \
                     Phi_T_K_Phi, second_membre))

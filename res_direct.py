@@ -20,9 +20,10 @@ def res_direct_tridiagonal(K, M, u0, all_f, dt):
         np.concatenate(([0], np.diag(K_plus_M_sur_dt, k=1))),
         np.diag(K_plus_M_sur_dt,k=0),
         np.concatenate((np.diag(K_plus_M_sur_dt,k=-1), [0]))))
+    seconde_partie_sec_membre = all_f[0] + M_sur_dt@u[-1]
     for f in all_f:
         u.append(la.solve_banded((1, 1),
-                tridiag_for_scipy, f + M_sur_dt@u[-1]))
+                tridiag_for_scipy, seconde_partie_sec_membre))
     return u
 
 def res_direct(u0, f_interieur, discretisation_z, 
