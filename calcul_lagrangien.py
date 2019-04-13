@@ -3,7 +3,7 @@ from itertools import repeat
 import concurrent.futures
 from res_direct import res_direct, calculer_M, calculer_K, res_direct_one_step, res_direct_tridiagonal
 
-beta = 1
+beta = 0.0000001
 
 def calcul_error(Phi, m, ensemble_apprentissage):
     Phi = np.reshape(Phi, (m, -1))
@@ -95,15 +95,17 @@ def calcul_sous_gradient(Phi, u_k, f_k, alpha_k, lambda_k, mu_k,
         ret_n -= u_k[n] @ alpha_k[n].T
 
         diff = alpha_k[n+1] - alpha_k[n]
+
         ret_n += M@Phi@(lambda_k[n]@diff.T+ \
                 diff@lambda_k[n].T)/dt
         ret_n += np.outer(K@Phi@alpha_k[n+1],lambda_k[n])
         ret_n += np.outer(K.T@Phi@lambda_k[n],alpha_k[n+1])
         ret_n -= np.outer(f_k[n],lambda_k[n])
+
         # ici c'est bien f_k[n], car l'utilisateur envoie
         # (normalement) pas f0. donc all_f[n] = f_{n+1}
         ret += ret_n
-    
+            
     ret += M@Phi@(alpha_k[0]@mu_k.T + mu_k@alpha_k[0].T)
     ret -= Phi@alpha_k[0] @ alpha_k[0].T
     ret += u_k[0] @ alpha_k[0].T
@@ -127,7 +129,7 @@ def call_func_with_computed_data(tuple_data_func_Phi):
     u = res_direct_tridiagonal(K, M, u0, all_f, dt)
 
     lambda_k = calcul_lambda(Phi, K, M, u, alpha, dt, len(all_f))
-    mu_k = lambda_k[0]
+    mu_k = lambda_k[0]/dt
     return func(Phi, u, all_f, alpha, lambda_k, mu_k, K, M, dt)
  
 
@@ -166,20 +168,23 @@ def calcul_alpha(Phi, M, K, u0, all_f, dt):
     """
     Phi_T_M_Phi = Phi.T@M@Phi
     try:
-        sec_membre = np.reshape(Phi.T@M@u0, (Phi_T_M_Phi.shape[0], 1))
+        sec_membre = np.reshape(Phi.T@M@u0, (Phi_T_M_Phi.shape[0],))
         alpha = [np.linalg.solve(Phi_T_M_Phi, sec_membre)]
     except(np.linalg.linalg.LinAlgError):
         alpha = [np.linalg.lstsq(Phi_T_M_Phi, 
             Phi.T@M@u0, rcond=None)[0]]
+        print("calcul d'alpha0 par moindres carres")
     # seconde equation = Phi^T M Phi \alpha0 = \Phi^T M u0
     Phi_T_M_Phi_dt = Phi_T_M_Phi / dt
     Phi_T_K_Phi = Phi.T@K@Phi
     #on fait zero + pour être sur d'avoir un nparray de dim2
-    second_membre = Phi.T @ all_f[0] + Phi_T_M_Phi_dt @ alpha[-1]
+    
     for fn in all_f:
+        second_membre = Phi.T @ fn + Phi_T_M_Phi_dt @ alpha[-1]
         try:
             alpha.append(np.linalg.solve(Phi_T_M_Phi_dt + \
                     Phi_T_K_Phi, second_membre))
+
         except(np.linalg.linalg.LinAlgError):
             alpha.append(np.linalg.lstsq(Phi_T_M_Phi_dt + \
                     Phi.T@K@Phi, second_membre, rcond=None)[0])
@@ -191,7 +196,7 @@ def calcul_lambda(Phi, K, M, u, alpha, dt, n_max):
     """attention dans le document c'est bien Phi^T K^T Phi"""
     lambda_ret = [0 for _ in range(n_max)]
     lambda_ret[n_max - 1] = np.zeros((Phi.shape[1], ))
-    # lambda est de taille m (nombre de colones de Phi)
+    # lambda est de taille m (nombre de colonnes de Phi)
     Phi_T_M_Phi = Phi.T@M@Phi
     for n in range(n_max-1, 0, -1):
         try:

@@ -85,8 +85,10 @@ try:
         print("i =",i)
         Phi = compute_POD_matrices_direct_method(vecs, range(i))[0]
         Phi = np.ravel(Phi)
+        print(calcul_lagrangien(Phi, nb_h, ensemble_apprentissage))
         res_opti = opti.minimize(calcul_lagrangien, Phi, jac=calcul_gradient, args=(nb_h, ensemble_apprentissage), method='BFGS', options={'disp': True})
 
+        print(res_opti)
         plt.clf()
         color = 'r+'
         Phi = np.reshape(res_opti.x, (-1, i))
